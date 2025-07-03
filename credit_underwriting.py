@@ -97,7 +97,13 @@ elif page == "Loan Details":
 
     percent_income = loan_amount / st.session_state.user_data.get("income_annum", 1) * 100
 
-    if st.button("Save Loan Details"):
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        save_loan = st.button("Save Loan Details")
+    with col2:
+        next_loan = st.button("Next ➡️", key="to_docs")
+
+    if save_loan:
         if purpose and loan_amount < st.session_state.user_data.get("income_annum", 1) * 10:
             user_entry = {
                 **st.session_state.user_data,
@@ -123,9 +129,11 @@ elif page == "Loan Details":
                 submitted_data.append(user_entry)
                 st.session_state.user_data = user_entry
                 st.success("✅ Loan Info Saved")
-                st.session_state.current_page = 2
         else:
             st.warning("Enter a valid loan purpose and ensure amount is reasonable.")
+
+    if next_loan:
+        st.session_state.current_page = 2
 
 # Page 3: Upload Documents
 elif page == "Upload Documents":
@@ -172,7 +180,17 @@ elif page == "Final Decision":
         label = "Loan Approved ✅" if pred == 1 else "Loan Rejected ❌"
 
         if st.button("Submit Application"):
-            st.success(label)
+            if pred == 1:
+                st.success(label)
+            else:
+                st.error(label)
+                st.info("Tips to improve approval chances:")
+                st.markdown("""
+                    - Improve your CIBIL score above 700.
+                    - Keep loan amount relative to your income lower.
+                    - Close or reduce other active loans.
+                    - Ensure consistent employment or income proof.
+                """)
 
 # Tips to Improve CIBIL Score
 with st.expander("💡 Tips to Improve Your CIBIL Score"):
