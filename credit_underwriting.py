@@ -1,3 +1,5 @@
+# credit_underwriting.py
+
 import streamlit as st
 import pandas as pd
 import joblib
@@ -13,27 +15,30 @@ def load_model():
 model = load_model()
 submitted_data = []
 
-# Title
 st.markdown("""
     <h1 style='text-align: center; background-color: #28a745; color: white; padding: 10px;'>
         AI Predictive Methods for Credit Underwriting
     </h1>
 """, unsafe_allow_html=True)
 
-# Page Navigation Setup
 if "current_page" not in st.session_state:
     st.session_state.current_page = 0
 
 pages = ["Personal Information", "Loan Details", "Upload Documents", "Final Decision"]
 page = pages[st.session_state.current_page]
 
-st.sidebar.title("Navigation")
-st.sidebar.markdown("Use the buttons below to navigate")
-col1, col2 = st.sidebar.columns(2)
-if col1.button("⬅️ Prev") and st.session_state.current_page > 0:
-    st.session_state.current_page -= 1
-if col2.button("Next ➡️") and st.session_state.current_page < len(pages) - 1:
-    st.session_state.current_page += 1
+# Replace Sidebar Navigation with Chatbot
+st.sidebar.title("🤖 Finance Chatbot")
+user_q = st.sidebar.text_input("Ask about loans, CIBIL, etc...")
+if user_q:
+    if "cibil" in user_q.lower():
+        st.sidebar.info("CIBIL score is influenced by timely payments, credit usage, and inquiries.")
+    elif "loan" in user_q.lower():
+        st.sidebar.info("Loan eligibility depends on income, credit score, and obligations.")
+    elif "interest" in user_q.lower():
+        st.sidebar.info("Interest rates vary based on loan type, bank, and applicant profile.")
+    else:
+        st.sidebar.info("This is a basic finance assistant. For legal advice, consult a financial expert.")
 
 if "user_data" not in st.session_state:
     st.session_state.user_data = {}
@@ -52,7 +57,13 @@ if page == "Personal Information":
     def is_valid_phone(p):
         return re.fullmatch(r"[6-9][0-9]{9}", p) and p not in ["0000000000", "9999999999"]
 
-    if st.button("Save Personal Info"):
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        save = st.button("Save Personal Info")
+    with col2:
+        next_pg = st.button("Next ➡️")
+
+    if save:
         if name and income > 0 and re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-zA-Z0-9]+$", email) and is_valid_phone(phone):
             st.session_state.user_data.update({
                 "name": name,
@@ -66,6 +77,9 @@ if page == "Personal Information":
             st.success("✅ Personal Info Saved")
         else:
             st.warning("❌ Enter valid name, income, email, and phone number.")
+
+    if next_pg:
+        st.session_state.current_page = 1
 
 # Page 2: Loan Details
 elif page == "Loan Details":
@@ -109,6 +123,7 @@ elif page == "Loan Details":
                 submitted_data.append(user_entry)
                 st.session_state.user_data = user_entry
                 st.success("✅ Loan Info Saved")
+                st.session_state.current_page = 2
         else:
             st.warning("Enter a valid loan purpose and ensure amount is reasonable.")
 
@@ -130,6 +145,9 @@ elif page == "Upload Documents":
             st.success("✅ All documents uploaded successfully")
         else:
             st.info("Please upload all required documents.")
+
+    if st.button("Next ➡️", key="to_final"):
+        st.session_state.current_page = 3
 
 # Page 4: Final Decision
 elif page == "Final Decision":
@@ -153,7 +171,8 @@ elif page == "Final Decision":
         pred = model.predict(input_df)[0]
         label = "Loan Approved ✅" if pred == 1 else "Loan Rejected ❌"
 
-        st.success(label)
+        if st.button("Submit Application"):
+            st.success(label)
 
 # Tips to Improve CIBIL Score
 with st.expander("💡 Tips to Improve Your CIBIL Score"):
@@ -166,16 +185,3 @@ with st.expander("💡 Tips to Improve Your CIBIL Score"):
     ]
     for tip in tips:
         st.markdown(f"- {tip}")
-
-# Simple Finance Chatbot
-with st.expander("🤖 Finance Chatbot - Ask a Question"):
-    user_q = st.text_input("Ask your finance or loan-related query")
-    if user_q:
-        if "cibil" in user_q.lower():
-            st.info("Your CIBIL score is influenced by payment history, credit usage, and inquiries. Aim to keep it above 750.")
-        elif "loan" in user_q.lower():
-            st.info("Loan eligibility depends on income, credit score, existing EMIs, and loan amount.")
-        elif "interest" in user_q.lower():
-            st.info("Interest rates vary by bank, loan type, and applicant profile. Compare rates before applying.")
-        else:
-            st.info("This is a simple demo bot. For detailed queries, consult a financial advisor.")
