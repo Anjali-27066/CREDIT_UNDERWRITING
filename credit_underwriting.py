@@ -1,8 +1,7 @@
-# credit_underwriting.py
-
 import streamlit as st
 import pandas as pd
 import joblib
+import re
 
 st.set_page_config(page_title="AI Credit Underwriting", layout="wide")
 
@@ -21,8 +20,20 @@ st.markdown("""
     </h1>
 """, unsafe_allow_html=True)
 
-# Sidebar Navigation
-page = st.sidebar.radio("Navigate", ["Personal Information", "Loan Details", "Upload Documents", "Final Decision"])
+# Page Navigation Setup
+if "current_page" not in st.session_state:
+    st.session_state.current_page = 0
+
+pages = ["Personal Information", "Loan Details", "Upload Documents", "Final Decision"]
+page = pages[st.session_state.current_page]
+
+st.sidebar.title("Navigation")
+st.sidebar.markdown("Use the buttons below to navigate")
+col1, col2 = st.sidebar.columns(2)
+if col1.button("⬅️ Prev") and st.session_state.current_page > 0:
+    st.session_state.current_page -= 1
+if col2.button("Next ➡️") and st.session_state.current_page < len(pages) - 1:
+    st.session_state.current_page += 1
 
 if "user_data" not in st.session_state:
     st.session_state.user_data = {}
@@ -34,15 +45,27 @@ if page == "Personal Information":
     age = st.number_input("Age", min_value=18, max_value=70, step=1)
     gender = st.selectbox("Gender", ["Male", "Female", "Other"])
     income = st.number_input("Annual Income (in ₹)", min_value=0.0)
+    email = st.text_input("Email Address")
+    phone = st.text_input("Phone Number")
+    address = st.text_area("Permanent Address")
+
+    def is_valid_phone(p):
+        return re.fullmatch(r"[6-9][0-9]{9}", p) and p not in ["0000000000", "9999999999"]
 
     if st.button("Save Personal Info"):
-        if name and income > 0:
+        if name and income > 0 and re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-zA-Z0-9]+$", email) and is_valid_phone(phone):
             st.session_state.user_data.update({
-                "name": name, "applicant_age": age, "gender": gender, "income_annum": income
+                "name": name,
+                "applicant_age": age,
+                "gender": gender,
+                "income_annum": income,
+                "email": email,
+                "phone": phone,
+                "address": address
             })
             st.success("✅ Personal Info Saved")
         else:
-            st.warning("Please enter valid name and income.")
+            st.warning("❌ Enter valid name, income, email, and phone number.")
 
 # Page 2: Loan Details
 elif page == "Loan Details":
@@ -94,12 +117,19 @@ elif page == "Upload Documents":
     st.subheader("Upload Documents")
     aadhar = st.file_uploader("Upload Aadhar Card")
     pan = st.file_uploader("Upload PAN Card")
-    salary_slip = st.file_uploader("Upload Salary Slip")
+    loan_type = st.session_state.user_data.get("loan_type", "").lower()
 
-    if aadhar and pan and salary_slip:
-        st.success("✅ All documents uploaded successfully")
+    if loan_type == "education":
+        if aadhar and pan:
+            st.success("✅ Documents uploaded (Salary slip not required for student loan)")
+        else:
+            st.info("Please upload Aadhar and PAN for education loan.")
     else:
-        st.info("Please upload all required documents.")
+        salary_slip = st.file_uploader("Upload Salary Slip")
+        if aadhar and pan and salary_slip:
+            st.success("✅ All documents uploaded successfully")
+        else:
+            st.info("Please upload all required documents.")
 
 # Page 4: Final Decision
 elif page == "Final Decision":
@@ -136,3 +166,16 @@ with st.expander("💡 Tips to Improve Your CIBIL Score"):
     ]
     for tip in tips:
         st.markdown(f"- {tip}")
+
+# Simple Finance Chatbot
+with st.expander("🤖 Finance Chatbot - Ask a Question"):
+    user_q = st.text_input("Ask your finance or loan-related query")
+    if user_q:
+        if "cibil" in user_q.lower():
+            st.info("Your CIBIL score is influenced by payment history, credit usage, and inquiries. Aim to keep it above 750.")
+        elif "loan" in user_q.lower():
+            st.info("Loan eligibility depends on income, credit score, existing EMIs, and loan amount.")
+        elif "interest" in user_q.lower():
+            st.info("Interest rates vary by bank, loan type, and applicant profile. Compare rates before applying.")
+        else:
+            st.info("This is a simple demo bot. For detailed queries, consult a financial advisor.")
