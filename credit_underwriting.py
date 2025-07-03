@@ -27,7 +27,7 @@ if "current_page" not in st.session_state:
 pages = ["Personal Information", "Loan Details", "Upload Documents", "Final Decision"]
 page = pages[st.session_state.current_page]
 
-# Replace Sidebar Navigation with Chatbot
+# Sidebar Chatbot and CIBIL Tips
 st.sidebar.title("🤖 Finance Chatbot")
 user_q = st.sidebar.text_input("Ask about loans, CIBIL, etc...")
 if user_q:
@@ -39,6 +39,16 @@ if user_q:
         st.sidebar.info("Interest rates vary based on loan type, bank, and applicant profile.")
     else:
         st.sidebar.info("This is a basic finance assistant. For legal advice, consult a financial expert.")
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("**💡 Tips to Improve Your CIBIL Score**")
+st.sidebar.markdown("""
+- Pay EMIs on time.
+- Keep credit usage below 30%.
+- Maintain a mix of secured and unsecured loans.
+- Avoid frequent loan applications.
+- Check credit report regularly.
+""")
 
 if "user_data" not in st.session_state:
     st.session_state.user_data = {}
@@ -57,11 +67,13 @@ if page == "Personal Information":
     def is_valid_phone(p):
         return re.fullmatch(r"[6-9][0-9]{9}", p) and p not in ["0000000000", "9999999999"]
 
-    col1, col2 = st.columns([3, 1])
+    col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
         save = st.button("Save Personal Info")
     with col2:
         next_pg = st.button("Next ➡️")
+    with col3:
+        prev = st.button("⬅️ Previous")
 
     if save:
         if name and income > 0 and re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-zA-Z0-9]+$", email) and is_valid_phone(phone):
@@ -80,6 +92,8 @@ if page == "Personal Information":
 
     if next_pg:
         st.session_state.current_page = 1
+    if prev and st.session_state.current_page > 0:
+        st.session_state.current_page -= 1
 
 # Page 2: Loan Details
 elif page == "Loan Details":
@@ -97,11 +111,13 @@ elif page == "Loan Details":
 
     percent_income = loan_amount / st.session_state.user_data.get("income_annum", 1) * 100
 
-    col1, col2 = st.columns([3, 1])
+    col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
         save_loan = st.button("Save Loan Details")
     with col2:
         next_loan = st.button("Next ➡️", key="to_docs")
+    with col3:
+        prev_loan = st.button("⬅️ Previous", key="back1")
 
     if save_loan:
         if purpose and loan_amount < st.session_state.user_data.get("income_annum", 1) * 10:
@@ -134,6 +150,8 @@ elif page == "Loan Details":
 
     if next_loan:
         st.session_state.current_page = 2
+    if prev_loan and st.session_state.current_page > 0:
+        st.session_state.current_page -= 1
 
 # Page 3: Upload Documents
 elif page == "Upload Documents":
@@ -154,7 +172,10 @@ elif page == "Upload Documents":
         else:
             st.info("Please upload all required documents.")
 
-    if st.button("Next ➡️", key="to_final"):
+    col1, col2 = st.columns([2, 2])
+    if col1.button("⬅️ Previous", key="back2"):
+        st.session_state.current_page = 1
+    if col2.button("Next ➡️", key="to_final"):
         st.session_state.current_page = 3
 
 # Page 4: Final Decision
@@ -192,14 +213,6 @@ elif page == "Final Decision":
                     - Ensure consistent employment or income proof.
                 """)
 
-# Tips to Improve CIBIL Score
-with st.expander("💡 Tips to Improve Your CIBIL Score"):
-    tips = [
-        "Pay EMIs on time.",
-        "Keep credit usage below 30%.",
-        "Maintain a mix of secured and unsecured loans.",
-        "Avoid frequent loan applications.",
-        "Check credit report regularly."
-    ]
-    for tip in tips:
-        st.markdown(f"- {tip}")
+        if submitted_data:
+            st.markdown("### Previous Applications")
+            st.dataframe(pd.DataFrame(submitted_data))
