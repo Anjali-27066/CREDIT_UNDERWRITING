@@ -1,10 +1,10 @@
-# credit_underwriting.py
-
 import streamlit as st
 import pandas as pd
 import joblib
 import re
 import uuid
+import smtplib
+from email.message import EmailMessage
 
 st.set_page_config(page_title="AI Credit Underwriting", layout="wide")
 
@@ -75,9 +75,11 @@ if page == "Personal Information":
     with col1:
         save = st.button("Save Personal Info")
     with col2:
-        next_pg = st.button("Next ➡️")
+        if st.button("Next ➡️"):
+            st.session_state.current_page = 1
     with col3:
-        prev = st.button("⬅️ Previous")
+        if st.button("⬅️ Previous") and st.session_state.current_page > 0:
+            st.session_state.current_page -= 1
 
     if save:
         if name and income > 0 and re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-zA-Z0-9]+$", email) and is_valid_phone(phone):
@@ -100,7 +102,146 @@ if page == "Personal Information":
         else:
             st.warning("❌ Enter valid name, income, email, and phone number.")
 
-    if next_pg:
+# Page 2: Loan Details
+elif page == "Loan Details":
+    st.subheader("Loan Details")
+    marital_status = st.selectbox("Marital Status", ["Single", "Married"])
+    emp_status = st.selectbox("Employment Status", ["Employed", "Unemployed", "Self-Employed"])
+    residence = st.selectbox("Residence Type", ["Owned", "Rented", "Mortgaged"])
+    cibil = st.slider("CIBIL Score", min_value=300, max_value=900)
+    loan_amount = st.number_input("Loan Amount (in ₹)", min_value=10000.0)
+    loan_interest = st.number_input("Loan Interest (%)", min_value=1.0, max_value=30.0)
+    loan_type = st.selectbox("Loan Type", ["House", "Vehicle", "Education", "Gold", "Personal", "Business"])
+    purpose = st.text_input("Purpose of Loan")
+    loan_term = st.number_input("Loan Term (in months)", min_value=6, max_value=360, value=60)
+    active_loans = st.number_input("Number of Active Loans", min_value=0, step=1)
+
+    percent_income = loan_amount / st.session_state.user_data.get("income_annum", 1) * 100
+
+    col1, col2, col3 = st.columns([2, 2, 1])
+    with col1:
+        if st.button("Save Loan Details"):
+            if purpose and loan_amount < st.session_state.user_data.get("income_annum", 1) * 10:
+                user_entry = {
+                    **st.session_state.user_data,
+                    "marital_status": marital_status,
+                    "employee_status": emp_status,
+                    "residence_type": residence,
+                    "cibil_score": cibil,
+                    "loan_amount": loan_amount,
+                    "loan_interest": loan_interest,
+                    "loan_percent_income": percent_income,
+                    "loan_type": loan_type,
+                    "loan_purpose": purpose,
+                    "loan_term": loan_term,
+                    "active_loans": active_loans,
+                    "residential_assets_value": 0,
+                    "commercial_assets_value": 0,
+                    "luxury_assets_value": 0,
+                    "bank_asset_value": 0
+                }
+                if user_entry in submitted_data:
+                    st.error("Duplicate application detected! ❌")
+                else:
+                    submitted_data.append(user_entry)
+                    st.session_state.user_data = user_entry
+                    st.success("✅ Loan Info Saved")
+            else:
+                st.warning("Enter a valid loan purpose and ensure amount is reasonable.")
+    with col2:
+        if st.button("Next ➡️", key="to_docs"):
+            st.session_state.current_page = 2
+    with col3:
+        if st.button("⬅️ Previous", key="back1") and st.session_state.current_page > 0:
+            st.session_state.current_page -= 1
+
+# Page 3: Upload Documents
+elif page == "Upload Documents":
+    st.subheader("Upload Documents")
+    aadhar = st.file_uploader("Upload Aadhar Card")
+    pan = st.file_uploader("Upload PAN Card")
+    loan_type = st.session_state.user_data.get("loan_type", "").lower()
+
+    if loan_type == "education":
+        if aadhar and pan:
+            st.success("✅ Documents uploaded (Salary slip not required for student loan)")
+        else:
+            st.info("Please upload Aadhar and PAN for education loan.")
+    else:
+        salary_slip = st.file_uploader("Upload Salary Slip")
+        if aadhar and pan and salary_slip:
+            st.success("✅ All documents uploaded successfully")
+        else:
+            st.info("Please upload all required documents.")
+
+    col1, col2 = st.columns([2, 2])
+    if col1.button("⬅️ Previous", key="back2"):
         st.session_state.current_page = 1
-    if prev and st.session_state.current_page > 0:
-        st.session_state.current_page -= 1
+    if col2.button("Next ➡️", key="to_final"):
+        st.session_state.current_page = 3
+
+# Page 4: Final Decision
+elif page == "Final Decision":
+    st.subheader("Final Decision")
+
+    if "loan_amount" not in st.session_state.user_data:
+        st.warning("Please complete previous steps.")
+    else:
+        input_df = pd.DataFrame([st.session_state.user_data])
+        input_df["loan_interest"] = input_df["loan_interest"].astype(float)
+        input_df["loan_percent_income"] = input_df["loan_percent_income"].astype(float)
+
+        cat_cols = ["gender", "marital_status", "employee_status", "residence_type", "loan_purpose", "loan_type"]
+        input_df = pd.get_dummies(input_df, columns=cat_cols, drop_first=True)
+
+        for col in model.feature_names_in_:
+            if col not in input_df.columns:
+                input_df[col] = 0
+
+        input_df = input_df[model.feature_names_in_]
+        pred = model.predict(input_df)[0]
+        label = "Loan Approved ✅" if pred == 1 else "Loan Rejected ❌"
+
+        if st.button("Submit Application"):
+            if pred == 1:
+                st.success(label)
+                try:
+                    sender = st.secrets["email"]["user"]
+                    password = st.secrets["email"]["pass"]
+                    receiver = st.session_state.user_data["email"]
+                    applicant_name = st.session_state.user_data["name"]
+                    applicant_id = st.session_state.user_data["applicant_id"]
+
+                    msg = EmailMessage()
+                    msg["Subject"] = "🎉 Loan Approved - Credit Underwriting System"
+                    msg["From"] = sender
+                    msg["To"] = receiver
+                    msg.set_content(
+                        f"Dear {applicant_name},\n\n"
+                        f"Congratulations! Your loan application has been approved.\n"
+                        f"Your unique Applicant ID is: {applicant_id}.\n\n"
+                        f"Thanks for using our credit underwriting system!\n\n"
+                        f"- AI Underwriting Team"
+                    )
+
+                    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                        smtp.login(sender, password)
+                        smtp.send_message(msg)
+
+                    st.success("📧 Approval email sent successfully!")
+
+                except Exception as e:
+                    st.warning(f"⚠️ Email could not be sent. Reason: {e}")
+            else:
+                st.error(label)
+                st.info("Tips to improve approval chances:")
+                st.markdown("""
+                    - Improve your CIBIL score above 700.
+                    - Keep loan amount relative to your income lower.
+                    - Close or reduce other active loans.
+                    - Ensure consistent employment or income proof.
+                """)
+
+        if submitted_data:
+            st.markdown("### Previous Applications")
+            st.dataframe(pd.DataFrame(submitted_data))
