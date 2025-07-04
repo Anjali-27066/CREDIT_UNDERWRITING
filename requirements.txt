@@ -9,3 +9,5 @@ numpy
 seaborn
 joblib
 fpdf2
+pillow
+pytesseract
