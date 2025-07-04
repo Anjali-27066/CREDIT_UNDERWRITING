@@ -37,11 +37,10 @@ def send_email(to, applicant_id):
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(email_user, email_pass)
-        text = msg.as_string()
-        server.sendmail(email_user, to, text)
+        server.sendmail(email_user, to, msg.as_string())
         server.quit()
         return True
-    except Exception as e:
+    except Exception:
         st.warning("📧 Email could not be sent. Check credentials or internet.")
         return False
 
@@ -58,7 +57,6 @@ if "current_page" not in st.session_state:
 pages = ["Personal Information", "Loan Details", "Upload Documents", "Final Decision"]
 page = pages[st.session_state.current_page]
 
-# Sidebar Chatbot and Tips
 st.sidebar.title("🤖 Finance Chatbot")
 user_q = st.sidebar.text_input("Ask about loans, CIBIL, etc...")
 if user_q:
@@ -127,19 +125,16 @@ if page == "Personal Information":
             st.warning("❌ Enter valid name, income, email, and phone number.")
 
     if next_pg:
-        if all(key in st.session_state.user_data for key in ["name", "income_annum", "email", "phone"]):
+        if all(k in st.session_state.user_data for k in ["name", "income_annum", "email", "phone"]):
             st.session_state.current_page = 1
         else:
             st.warning("Please save valid personal info before proceeding.")
-
-
-
 
 # --- Page 2: Loan Details ---
 elif page == "Loan Details":
     st.subheader("Loan Details")
     marital_status = st.selectbox("Marital Status", ["Single", "Married"])
-    emp_status = st.selectbox("Employment Status", ["Employed", "Unemployed", "Self-Employed"])
+    emp_status = st.selectbox("Employment Status", ["Employed", "Self-Employed", "Unemployed"])
     residence = st.selectbox("Residence Type", ["Owned", "Rented", "Mortgaged"])
     cibil = st.slider("CIBIL Score", min_value=300, max_value=900)
     loan_amount = st.number_input("Loan Amount (₹)", min_value=10000.0)
@@ -226,6 +221,7 @@ elif page == "Final Decision":
             if col not in df.columns:
                 df[col] = 0
         df = df[model.feature_names_in_]
+
         pred = model.predict(df)[0]
         label = "Loan Approved ✅" if pred == 1 else "Loan Rejected ❌"
 
