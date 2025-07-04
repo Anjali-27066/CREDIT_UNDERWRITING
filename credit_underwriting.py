@@ -127,10 +127,10 @@ if page == "Personal Information":
             st.warning("❌ Enter valid name, income, email, and phone number.")
 
    if next_pg:
-    if all(key in st.session_state.user_data for key in ["name", "income_annum", "email", "phone"]):
-        st.session_state.current_page = 1
-    else:
-        st.warning("Please save valid personal info before proceeding.")
+       if all(key in st.session_state.user_data for key in ["name", "income_annum", "email", "phone"]):
+           st.session_state.current_page = 1
+       else:
+           st.warning("Please save valid personal info before proceeding.")
 
 
 
